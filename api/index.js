@@ -130,4 +130,4 @@ app.post("/scan/all", async (req, res) => {
 // ==========================
 // Serverless export
 // ==========================
-module.exports.handler = serverless(app);
+module.exports = app;
