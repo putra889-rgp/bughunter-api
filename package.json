@@ -2,9 +2,9 @@
   "name": "bughunter-api",
   "version": "1.0.0",
   "description": "Bug Hunter API - XSS & SQLi scanner",
-  "main": "api/bughunter-api.js",
+  "main": "api/index.js",
   "scripts": {
-    "start": "node api/bughunter-api.js"
+    "start": "node api/index.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
