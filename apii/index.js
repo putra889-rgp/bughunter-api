@@ -1,53 +1,20 @@
-// bughunter-api.js
 const express = require("express");
 const serverless = require("serverless-http");
 const axios = require("axios");
-const fs = require("fs"); // <= penting!
+
 const app = express();
+app.use(express.json());
 
-app.use(express.json()); // body-parser diganti
-
-const REPORT_FILE = "reports.json";
-
-// ==========================
 // Payloads
-// ==========================
-const xssPayloads = [
-  "<script>alert(1)</script>",
-  "'\"><img src=x onerror=alert(1)>"
-];
+const xssPayloads = ["<script>alert(1)</script>", "'\"><img src=x onerror=alert(1)>"];
+const sqliPayloads = ["' OR '1'='1", "\" OR \"1\"=\"1", "'; DROP TABLE users; --"];
 
-const sqliPayloads = [
-  "' OR '1'='1",
-  "\" OR \"1\"=\"1",
-  "'; DROP TABLE users; --"
-];
-
-// ==========================
-// Helper
-// ==========================
-function saveReport(report) {
-  let data = [];
-  if (fs.existsSync(REPORT_FILE)) {
-    const content = fs.readFileSync(REPORT_FILE, "utf-8");
-    try {
-      data = JSON.parse(content);
-    } catch (err) {
-      console.error("Error parsing existing report file:", err.message);
-    }
-  }
-  data.push(report);
-  fs.writeFileSync(REPORT_FILE, JSON.stringify(data, null, 2));
-}
-
-// ==========================
-// Routes
-// ==========================
+// GET status API
 app.get("/", (req, res) => {
   res.json({ status: "Bug Hunter API Ready ✅" });
 });
 
-// Scan XSS
+// POST /scan/xss
 app.post("/scan/xss", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "URL required" });
@@ -55,20 +22,17 @@ app.post("/scan/xss", async (req, res) => {
   const results = [];
   for (let payload of xssPayloads) {
     try {
-      const response = await axios.get(url + "?q=" + encodeURIComponent(payload), { timeout: 7000 });
-      const vulnerable = response.data.includes(payload);
+      const r = await axios.get(url + "?q=" + encodeURIComponent(payload), { timeout: 7000 });
+      const vulnerable = r.data.includes(payload);
       results.push({ payload, vulnerable, evidence: vulnerable ? payload : null });
     } catch (err) {
       results.push({ payload, vulnerable: false, error: err.message });
     }
   }
-
-  const report = { target: url, scanType: "XSS", results, date: new Date().toISOString() };
-  saveReport(report);
-  res.json(report);
+  res.json({ target: url, scanType: "XSS", results, date: new Date().toISOString() });
 });
 
-// Scan SQLi
+// POST /scan/sqli
 app.post("/scan/sqli", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "URL required" });
@@ -76,60 +40,47 @@ app.post("/scan/sqli", async (req, res) => {
   const results = [];
   for (let payload of sqliPayloads) {
     try {
-      const response = await axios.get(url + "?id=" + encodeURIComponent(payload), { timeout: 7000 });
-      const vulnerable = /sql|syntax|error|mysql|mssql|pgsql/i.test(response.data);
-      results.push({ payload, vulnerable, evidence: vulnerable ? response.data.slice(0,200) : null });
+      const r = await axios.get(url + "?id=" + encodeURIComponent(payload), { timeout: 7000 });
+      const vulnerable = /sql|syntax|error|mysql|mssql|pgsql/i.test(r.data);
+      results.push({ payload, vulnerable, evidence: vulnerable ? r.data.slice(0,200) : null });
     } catch (err) {
       results.push({ payload, vulnerable: false, error: err.message });
     }
   }
-
-  const report = { target: url, scanType: "SQLi", results, date: new Date().toISOString() };
-  saveReport(report);
-  res.json(report);
+  res.json({ target: url, scanType: "SQLi", results, date: new Date().toISOString() });
 });
 
-// Scan All
+// POST /scan/all
 app.post("/scan/all", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "URL required" });
 
+  // XSS
   const xssResults = [];
-  for (let payload of xssPayloads) {
+  for (let p of xssPayloads) {
     try {
-      const response = await axios.get(url + "?q=" + encodeURIComponent(payload), { timeout: 7000 });
-      const vulnerable = response.data.includes(payload);
-      xssResults.push({ payload, vulnerable, evidence: vulnerable ? payload : null });
+      const r = await axios.get(url + "?q=" + encodeURIComponent(p), { timeout: 7000 });
+      const vulnerable = r.data.includes(p);
+      xssResults.push({ payload: p, vulnerable, evidence: vulnerable ? p : null });
     } catch (err) {
-      xssResults.push({ payload, vulnerable: false, error: err.message });
+      xssResults.push({ payload: p, vulnerable: false, error: err.message });
     }
   }
 
+  // SQLi
   const sqliResults = [];
-  for (let payload of sqliPayloads) {
+  for (let p of sqliPayloads) {
     try {
-      const response = await axios.get(url + "?id=" + encodeURIComponent(payload), { timeout: 7000 });
-      const vulnerable = /sql|syntax|error|mysql|mssql|pgsql/i.test(response.data);
-      sqliResults.push({ payload, vulnerable, evidence: vulnerable ? response.data.slice(0,200) : null });
+      const r = await axios.get(url + "?id=" + encodeURIComponent(p), { timeout: 7000 });
+      const vulnerable = /sql|syntax|error|mysql|mssql|pgsql/i.test(r.data);
+      sqliResults.push({ payload: p, vulnerable, evidence: vulnerable ? r.data.slice(0,200) : null });
     } catch (err) {
-      sqliResults.push({ payload, vulnerable: false, error: err.message });
+      sqliResults.push({ payload: p, vulnerable: false, error: err.message });
     }
   }
 
-  const report = {
-    target: url,
-    scanType: "ALL",
-    results: { xss: xssResults, sqli: sqliResults },
-    date: new Date().toISOString()
-  };
-
-  saveReport(report);
-  res.json(report);
+  res.json({ target: url, scanType: "ALL", results: { xss: xssResults, sqli: sqliResults }, date: new Date().toISOString() });
 });
 
-// ==========================
-// Serverless export
-// ==========================
-const serverless = require("serverless-http");
-// ... kode Express kamu ...
+// Export serverless
 module.exports = serverless(app);
