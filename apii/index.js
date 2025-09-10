@@ -130,4 +130,6 @@ app.post("/scan/all", async (req, res) => {
 // ==========================
 // Serverless export
 // ==========================
-module.exports = app;
+const serverless = require("serverless-http");
+// ... kode Express kamu ...
+module.exports = serverless(app);
