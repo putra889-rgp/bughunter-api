@@ -2,7 +2,7 @@
   "name": "bughunter-api",
   "version": "1.0.0",
   "description": "API Web Scanner & Bug Hunter (XSS, SQLi) - NodeJS Single File",
-  "main": "bughunter-api.js",
+  "main": "api/bughunter-api.js",
   "scripts": {
     "start": "node bughunter-api.js"
   },
