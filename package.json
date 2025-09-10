@@ -4,7 +4,7 @@
   "description": "API Web Scanner & Bug Hunter (XSS, SQLi) - NodeJS Single File",
   "main": "api/bughunter-api.js",
   "scripts": {
-    "start": "node bughunter-api.js"
+    "start": "node api/bughunter-api.js"
   },
   "dependencies": {
     "axios": "^1.7.5",
